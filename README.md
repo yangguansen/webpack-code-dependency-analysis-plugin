@@ -6,12 +6,12 @@ Collection file dependency when `import` and `importCall` hooks is triggered.
 
 # Usage
 ```
-npm install webpack-code-dependency-analysis
+npm install webpack-code-dependency-analysis-plugin
 ```
 
 Enable the plugin in webpack.config.js:
 ```
-const WebpackCodeDependencyAnalysis = require('webpack-code-dependency-analysis');
+const WebpackCodeDependencyAnalysis = require('webpack-code-dependency-analysis-plugin');
 
 module.exports = {
   ...,
