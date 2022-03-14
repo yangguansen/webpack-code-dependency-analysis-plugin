@@ -1,0 +1,27 @@
+{
+  "name": "webpack-code-dependency-analysis-plugin",
+  "version": "1.0.0",
+  "description": "A Webpack Plugin About Code Dependencies Analysis.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https:git"
+  },
+  "keywords": [
+    "webpack",
+    "plugin",
+    "code",
+    "dependencies",
+    "analysis"
+  ],
+  "author": "yangguansen",
+  "license": "ISC",
+  "dependencies": {
+    "fs": "0.0.1-security",
+    "http": "0.0.1-security",
+    "opener": "^1.5.2"
+  }
+}
