@@ -2,6 +2,9 @@ const fs = require('fs');
 const http = require('http');
 const opener = require('opener');
 const path = require('path');
+const resolve = require("enhanced-resolve");
+
+let myResolve;
 
 function getDependencies(file, array) {
   const item = array.find(v => v.rawRequest === file);
@@ -73,6 +76,9 @@ function generateToJSON(string) {
 const transformArrayToTree = (array) => {
   if (!array || array?.length === 0) return null;
   const tree = {};
+
+  //  TODO 改造 组织树结构逻辑
+
   //  默认第一个触发import钩子的文件是入口，作为树的根节点
   tree.name = array[0].rawRequest;
   tree.children = array[0].dependencies;
@@ -80,6 +86,18 @@ const transformArrayToTree = (array) => {
 
   return tree;
 };
+
+/**
+ * 通过source获取真实文件路径
+ * @param parser
+ * @param source
+ */
+function getResource(parser, source){
+  if(!myResolve){
+    myResolve = resolve.create.sync(parser.state.options.resolve);
+  }
+  return myResolve(parser.state.current.context,source);
+}
 
 class WebpackCodeDependenciesAnalysis {
   constructor() {
@@ -95,11 +113,12 @@ class WebpackCodeDependenciesAnalysis {
   apply(compiler) {
     compiler.hooks.compilation.tap(this.pluginName, (compilation, { normalModuleFactory }) => {
       const collectFile = (parser) => {
-        const { rawRequest: fileName, resource: filePath } = parser.state.current;
-        if (filePath !== this.currentFile) {
-          this.currentFile = filePath;
+        const { rawRequest, resource } = parser.state.current;
+        if (resource !== this.currentFile) {
+          this.currentFile = resource;
           this.files.push({
-            rawRequest: fileName,
+            rawRequest,
+            resource,
             dependencies: []
           });
         }
@@ -111,6 +130,7 @@ class WebpackCodeDependenciesAnalysis {
           if (parser.state.current.resource.includes('node_modules')) {
             return;
           }
+
           collectFile(parser);
 
           let ast = {};
@@ -126,26 +146,28 @@ class WebpackCodeDependenciesAnalysis {
           }
           const { type, value } = ast;
           if (type === 'Literal') {
-            this.files[this.files.length - 1].dependencies.push({ source: value });
+            const resource = getResource(parser, value);
+            this.files[this.files.length - 1].dependencies.push({
+              rawRequest: value,
+              resource
+            });
           }
         })
         parser.hooks.import.tap(this.pluginName, (statement, source) => {
-          if (parser.state.current.resource.includes('node_modules') || source.includes('node_modules')) {
+          if (parser.state.current.resource.includes('node_modules')
+          ) {
             return;
           }
           collectFile(parser);
-          this.files[this.files.length - 1].dependencies.push({ source });
+          this.files[this.files.length - 1].dependencies.push({
+            rawRequest: source,
+            resource: getResource(parser, source)
+          });
         });
       }
 
       normalModuleFactory.hooks.parser
         .for("javascript/auto")
-        .tap(this.pluginName, handler);
-      normalModuleFactory.hooks.parser
-        .for("javascript/dynamic")
-        .tap(this.pluginName, handler);
-      normalModuleFactory.hooks.parser
-        .for("javascript/esm")
         .tap(this.pluginName, handler);
     });
 

@@ -23,5 +23,8 @@
     "fs": "0.0.1-security",
     "http": "0.0.1-security",
     "opener": "^1.5.2"
+  },
+  "devDependencies": {
+    "enhanced-resolve": "^5.9.2"
   }
 }
