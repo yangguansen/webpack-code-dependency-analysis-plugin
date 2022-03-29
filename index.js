@@ -6,21 +6,6 @@ const resolve = require("enhanced-resolve");
 
 let myResolve;
 
-function getDependencies(file, array) {
-  const item = array.find(v => v.rawRequest === file);
-  return item?.dependencies || [];
-}
-
-function walk(dependencies, array) {
-  dependencies.forEach(v => {
-    v.name = v.source;
-    if (v.source.slice(0, 1) === '@' || v.source.slice(0, 1) === '.') {
-      v.children = getDependencies(v.source, array);
-      walk(v.children, array);
-    }
-  });
-}
-
 function renderViewer(jsonString) {
   return new Promise((resolve) => {
     fs.readFile(path.resolve(__dirname, './dependencies.html'), 'utf-8', (err, data) => {
@@ -66,25 +51,16 @@ async function startServer(jsonString) {
   });
 }
 
-function generateToJSON(string) {
-  fs.writeFile('./treeJSON', string, 'utf-8', (err) => {
-    if (err) throw Error(err);
-    startServer(string);
-  });
-}
-
 const transformArrayToTree = (array) => {
   if (!array || array?.length === 0) return null;
-  const tree = {};
 
-  //  TODO 改造 组织树结构逻辑
-
-  //  默认第一个触发import钩子的文件是入口，作为树的根节点
-  tree.name = array[0].rawRequest;
-  tree.children = array[0].dependencies;
-  walk(tree.children, array);
-
-  return tree;
+  array.forEach(v => {
+    (v.children || []).forEach(k => {
+      const childDep = array.find(l => l.resource === k.resource);
+      childDep && (k.children = childDep.children);
+    })
+  })
+  return array[0];
 };
 
 /**
@@ -117,9 +93,9 @@ class WebpackCodeDependenciesAnalysis {
         if (resource !== this.currentFile) {
           this.currentFile = resource;
           this.files.push({
-            rawRequest,
+            name: rawRequest,
             resource,
-            dependencies: []
+            children: []
           });
         }
       }
@@ -147,8 +123,8 @@ class WebpackCodeDependenciesAnalysis {
           const { type, value } = ast;
           if (type === 'Literal') {
             const resource = getResource(parser, value);
-            this.files[this.files.length - 1].dependencies.push({
-              rawRequest: value,
+            this.files[this.files.length - 1].children.push({
+              name: value,
               resource
             });
           }
@@ -159,8 +135,8 @@ class WebpackCodeDependenciesAnalysis {
             return;
           }
           collectFile(parser);
-          this.files[this.files.length - 1].dependencies.push({
-            rawRequest: source,
+          this.files[this.files.length - 1].children.push({
+            name: source,
             resource: getResource(parser, source)
           });
         });
@@ -174,8 +150,8 @@ class WebpackCodeDependenciesAnalysis {
 
     compiler.hooks.make.tap(this.pluginName, (compilation) => {
       compilation.hooks.finishModules.tap(this.pluginName, (modules) => {
-        const tree = transformArrayToTree(this.files);
-        generateToJSON(JSON.stringify(tree));
+        // const tree = transformArrayToTree(this.files);
+        startServer(JSON.stringify(this.files));
       });
     });
   }
