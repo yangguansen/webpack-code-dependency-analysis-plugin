@@ -28,7 +28,7 @@
 
   function setChildFlag(datum, index) {
     const childDep = array.find(l => l.resource === datum.resource);
-    childDep && (datum.itemStyle = { color: 'rgba(227, 112, 18, 1)' });
+    childDep && childDep.children.length > 0 &&  (datum.itemStyle = { color: 'rgba(227, 112, 18, 1)' });
   }
 
   /**
@@ -76,6 +76,7 @@
           bottom: '1%',
           right: '20%',
           symbolSize: 7,
+          symbol: 'circle',
           label: {
             position: 'left',
             verticalAlign: 'middle',
@@ -109,16 +110,17 @@
     console.log(params);
     if (params.componentType === 'series') {
       // 有itemStyle属性表示有子节点
-      if (params.data.itemStyle && !params.data.children) {
-        const children = getChildNode(params.data.resource);
-        children.forEach(setChildFlag);
-
+      if (params.data.itemStyle) {
         const { treeAncestors } = params;
-
         const node = findNode(data, treeAncestors)
-
-        node.children = children;
-        node.collapsed = false;
+        if(params.data.children){
+          node.collapsed = !params.data.collapsed;
+        } else {
+          const children = getChildNode(params.data.resource);
+          children.forEach(setChildFlag);
+          node.children = children;
+          node.collapsed = false;
+        }
 
         myChart.setOption({
           series: [
