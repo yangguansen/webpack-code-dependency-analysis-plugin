@@ -1,17 +1,17 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport"
-        content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
-  <meta http-equiv="X-UA-Compatible" content="ie=edge">
-  <title>Webpack Code Dependencies Analysis</title>
-  <style>
-    #main{
-      width: 100%;
-      height: 600px;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Webpack Code Dependencies Analysis</title>
+    <style>
+        #main {
+            width: 100%;
+            height: 600px;
+        }
+    </style>
 </head>
 <body>
 
@@ -19,14 +19,48 @@
 
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.3.1/dist/echarts.min.js"></script>
 <script>
+  const array = <%=data%>;
+
+  function getChildNode(resource) {
+    const childDep = array.find(l => l.resource === resource);
+    return childDep ? JSON.parse(JSON.stringify(childDep)).children : [];
+  }
+
+  function setChildFlag(datum, index) {
+    const childDep = array.find(l => l.resource === datum.resource);
+    childDep && childDep.children.length > 0 &&  (datum.itemStyle = { color: 'rgba(227, 112, 18, 1)' });
+  }
+
+  /**
+   * 通过节点的层级数组找到对应的树节点
+   * @param tree 树结构
+   * @param array 节点的层级数组
+   */
+  function findNode(tree, array){
+    let node = [tree];
+    let theNode;
+    array.forEach((v, i) => {
+      if(v.name){
+        const item = node.find(k => k.name === v.name);
+        if(i !== array.length - 1){
+          node = item.children;
+        } else {
+          theNode = item;
+        }
+      }
+    })
+    return theNode;
+  }
+
   var myChart = echarts.init(document.getElementById('main'));
-  window.onresize = function() {
+  window.onresize = function () {
     myChart.resize();
   };
-  const data = <%=data%>;
-  data.children.forEach(function (datum, index) {
-    index % 2 === 0 && (datum.collapsed = true);
-  });
+
+  const data = JSON.parse(JSON.stringify(array[0]));
+
+  data.children.forEach(setChildFlag);
+
   myChart.setOption(
     (option = {
       tooltip: {
@@ -42,6 +76,7 @@
           bottom: '1%',
           right: '20%',
           symbolSize: 7,
+          symbol: 'circle',
           label: {
             position: 'left',
             verticalAlign: 'middle',
@@ -55,9 +90,9 @@
               align: 'left'
             }
           },
-          tooltip:{
+          tooltip: {
             formatter: (params) => {
-              return params.treeAncestors.filter(v => v.name).map( v=> v.name).join('->')
+              return params.data.resource;
             }
           },
           emphasis: {
@@ -70,6 +105,33 @@
       ]
     })
   );
+
+  myChart.on('click', function (params) {
+    console.log(params);
+    if (params.componentType === 'series') {
+      // 有itemStyle属性表示有子节点
+      if (params.data.itemStyle) {
+        const { treeAncestors } = params;
+        const node = findNode(data, treeAncestors)
+        if(params.data.children){
+          node.collapsed = !params.data.collapsed;
+        } else {
+          const children = getChildNode(params.data.resource);
+          children.forEach(setChildFlag);
+          node.children = children;
+          node.collapsed = false;
+        }
+
+        myChart.setOption({
+          series: [
+            {
+              data: [data]
+            }
+          ]
+        });
+      }
+    }
+  });
 </script>
 </body>
 </html>
